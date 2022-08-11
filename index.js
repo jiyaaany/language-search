@@ -2,36 +2,52 @@ window.onload = (event) => {
   if (document.getElementById("suggestion-languages").childElementCount === 0) {
     document.getElementById("suggestion").style.display = "none";
   }
-
-  document.getElementById("search-input").focus()
 };
 
-document.addEventListener('keydown', function (event) {
+document.addEventListener('keydown', (event) => {
   switch(event.keyCode) {
     case 13:
+      event.preventDefault();
       keydownLanguage('OK');
-    case 38:
+      break;
+    case 38: // 위
+      event.preventDefault();
       keydownLanguage('U');
+      break;
     case 40:
+      event.preventDefault();
       keydownLanguage('D');
+      break;
     default:
       break;
   }
 }, false);
 
-document.getElementById("search-input").oninput = ({ target: { value } }) => {
-  fetch(`https://wr4a6p937i.execute-api.ap-northeast-2.amazonaws.com/dev/languages?keyword=${value}`)
-    .then(response => {
-      return response.json();
-    })
-    .then(data => {
-      if (data.length === 0) {
-        document.getElementById("suggestion").style.display = "none";
+let timer;
+let cachedLanguages = {};
+
+document.getElementById("search-input").oninput = function ({ target: { value } }) {
+  if (value) {
+    let languages = [];
+
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      if (value in cachedLanguages) {
+        languages = cachedLanguages[value];
+      } else {
+        const response = await fetch(`https://wr4a6p937i.execute-api.ap-northeast-2.amazonaws.com/dev/languages?keyword=${value}`);
+        const data = await response.json();
+        if (data.length === 0) {
+          document.getElementById("suggestion").style.display = "none";
+        }
+        cachedLanguages[value] = data;
+        languages = data;
       }
 
       clearLanguages();
-      appendLangages(data, value);
-    });
+      appendLangages(languages, value);
+    }, 400);
+  }
 };
 
 const clearLanguages = () => {
@@ -59,6 +75,7 @@ const selectLanguage = (language) => {
   elSelectedLanguage.appendChild(document.createTextNode(language));
 
   elSelectedLanguages.appendChild(elSelectedLanguage);
+  elSelectedLanguages.appendChild(document.createTextNode(" "));
 }
 
 const appendLangages = (languages, keyword) => {
@@ -70,11 +87,7 @@ const appendLangages = (languages, keyword) => {
     languages.map(language => {
       const elLanguage = document.createElement("li");
       elLanguage.classList.add("Suggestion__item");
-      elLanguage.appendChild(document.createTextNode(language));
-
-      const spanMatchedLanguage = document.createElement("span");
-      spanMatchedLanguage.classList.add("Suggestion__item--matched");
-      spanMatchedLanguage.innerHTML = elLanguage.outerHTML;
+      elLanguage.innerHTML = language.replaceAll(new RegExp(`(${keyword})`, 'gi'), '<span class="Suggestion__item--matched">$1</span>');
 
       elLanguage.onclick = function({ target }) {
         selectLanguage(target.innerText);
